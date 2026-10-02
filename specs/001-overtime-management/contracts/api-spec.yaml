@@ -1,0 +1,532 @@
+openapi: 3.1.0
+info:
+  title: Minhas Horas API
+  version: 1.0.0
+  description: REST API for Overtime Management, Time Bank Calculation, Offline Synchronization, and Multi-Format Reporting.
+servers:
+  - url: /api/v1
+    description: Base API prefix
+
+paths:
+  /health:
+    get:
+      summary: System Healthcheck
+      operationId: getHealth
+      responses:
+        '200':
+          description: Healthy status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                    example: connected
+
+  /records:
+    get:
+      summary: List overtime records
+      operationId: listRecords
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+            format: date
+          example: '2026-10-01'
+        - name: end_date
+          in: query
+          schema:
+            type: string
+            format: date
+          example: '2026-10-31'
+      responses:
+        '200':
+          description: List of records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OvertimeRecord'
+    post:
+      summary: Create new overtime record
+      operationId: createRecord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOvertimeRecordRequest'
+      responses:
+        '201':
+          description: Created record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecord'
+        '400':
+          description: Validation error
+
+  /records/{id}:
+    put:
+      summary: Update existing overtime record
+      operationId: updateRecord
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOvertimeRecordRequest'
+      responses:
+        '200':
+          description: Updated record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OvertimeRecord'
+    delete:
+      summary: Delete overtime record
+      operationId: deleteRecord
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted successfully
+
+  /balance:
+    get:
+      summary: Get current aggregate time bank balance and limits
+      operationId: getBalance
+      responses:
+        '200':
+          description: Balance ledger summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeBankBalanceSummary'
+
+  /settings:
+    get:
+      summary: Get user time bank settings and limits
+      operationId: getSettings
+      responses:
+        '200':
+          description: User settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeBankSettings'
+    put:
+      summary: Update user time bank settings and limits
+      operationId: updateSettings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeBankSettings'
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeBankSettings'
+
+  /compensations:
+    get:
+      summary: List scheduled and completed compensations
+      operationId: listCompensations
+      responses:
+        '200':
+          description: List of compensations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CompensationSchedule'
+    post:
+      summary: Pre-schedule a compensation
+      operationId: createCompensation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCompensationRequest'
+      responses:
+        '201':
+          description: Created compensation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensationSchedule'
+
+  /compensations/{id}:
+    put:
+      summary: Update compensation status or hours
+      operationId: updateCompensation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCompensationRequest'
+      responses:
+        '200':
+          description: Updated compensation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompensationSchedule'
+
+  /sync:
+    post:
+      summary: Synchronize offline queued records and operations
+      operationId: syncOfflineQueue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncBatchRequest'
+      responses:
+        '200':
+          description: Sync results and updated ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncBatchResponse'
+
+  /reports/export:
+    get:
+      summary: Export time records and time bank report
+      operationId: exportReport
+      parameters:
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [csv, xlsx, pdf]
+        - name: start_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: File download stream
+          content:
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Invalid date range or empty period
+
+components:
+  schemas:
+    OvertimeRecord:
+      type: object
+      required:
+        - id
+        - record_date
+        - start_time
+        - end_time
+        - net_overtime_minutes
+        - sync_status
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+        record_date:
+          type: string
+          format: date
+          example: '2026-10-01'
+        start_time:
+          type: string
+          example: '18:00'
+        end_time:
+          type: string
+          example: '20:30'
+        break_duration_minutes:
+          type: integer
+          example: 0
+        net_overtime_minutes:
+          type: integer
+          example: 150
+        description:
+          type: string
+          example: 'Extra hours for project release'
+        category:
+          type: string
+          example: 'standard'
+        sync_status:
+          type: string
+          enum: [synced, pending, conflict]
+        client_updated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateOvertimeRecordRequest:
+      type: object
+      required:
+        - id
+        - record_date
+        - start_time
+        - end_time
+      properties:
+        id:
+          type: string
+          format: uuid
+        record_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+          example: '18:00'
+        end_time:
+          type: string
+          example: '20:30'
+        break_duration_minutes:
+          type: integer
+          default: 0
+        description:
+          type: string
+        category:
+          type: string
+          default: 'standard'
+        client_updated_at:
+          type: string
+          format: date-time
+
+    UpdateOvertimeRecordRequest:
+      type: object
+      properties:
+        record_date:
+          type: string
+          format: date
+        start_time:
+          type: string
+        end_time:
+          type: string
+        break_duration_minutes:
+          type: integer
+        description:
+          type: string
+        category:
+          type: string
+        client_updated_at:
+          type: string
+          format: date-time
+
+    CompensationSchedule:
+      type: object
+      required:
+        - id
+        - planned_date
+        - scheduled_minutes
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+        planned_date:
+          type: string
+          format: date
+          example: '2026-10-15'
+        scheduled_minutes:
+          type: integer
+          example: 240
+        actual_minutes:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [Scheduled, Completed, Cancelled]
+        notes:
+          type: string
+        client_updated_at:
+          type: string
+          format: date-time
+
+    CreateCompensationRequest:
+      type: object
+      required:
+        - id
+        - planned_date
+        - scheduled_minutes
+      properties:
+        id:
+          type: string
+          format: uuid
+        planned_date:
+          type: string
+          format: date
+        scheduled_minutes:
+          type: integer
+        notes:
+          type: string
+        client_updated_at:
+          type: string
+          format: date-time
+
+    UpdateCompensationRequest:
+      type: object
+      properties:
+        planned_date:
+          type: string
+          format: date
+        scheduled_minutes:
+          type: integer
+        actual_minutes:
+          type: integer
+        status:
+          type: string
+          enum: [Scheduled, Completed, Cancelled]
+        notes:
+          type: string
+        client_updated_at:
+          type: string
+          format: date-time
+
+    TimeBankSettings:
+      type: object
+      properties:
+        max_positive_limit_minutes:
+          type: integer
+          example: 2400
+        max_negative_limit_minutes:
+          type: integer
+          example: -600
+        warning_threshold_percentage:
+          type: integer
+          example: 80
+        daily_standard_work_minutes:
+          type: integer
+          example: 480
+        notifications_enabled:
+          type: boolean
+          example: true
+        daily_reminder_time:
+          type: string
+          nullable: true
+          example: '18:00'
+
+    TimeBankBalanceSummary:
+      type: object
+      properties:
+        total_positive_minutes:
+          type: integer
+          example: 900
+        total_negative_minutes:
+          type: integer
+          example: 120
+        net_balance_minutes:
+          type: integer
+          example: 780
+        projected_balance_minutes:
+          type: integer
+          example: 540
+        is_warning_threshold_reached:
+          type: boolean
+          example: false
+        is_limit_exceeded:
+          type: boolean
+          example: false
+        settings:
+          $ref: '#/components/schemas/TimeBankSettings'
+
+    SyncBatchRequest:
+      type: object
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/OvertimeRecord'
+        compensations:
+          type: array
+          items:
+            $ref: '#/components/schemas/CompensationSchedule'
+        client_sync_timestamp:
+          type: string
+          format: date-time
+
+    SyncBatchResponse:
+      type: object
+      properties:
+        applied_record_ids:
+          type: array
+          items:
+            type: string
+        applied_compensation_ids:
+          type: array
+          items:
+            type: string
+        conflicts:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              reason:
+                type: string
+        balance:
+          $ref: '#/components/schemas/TimeBankBalanceSummary'
+        server_timestamp:
+          type: string
+          format: date-time

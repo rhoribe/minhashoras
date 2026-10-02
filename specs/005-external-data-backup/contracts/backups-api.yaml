@@ -1,0 +1,254 @@
+openapi: 3.0.3
+info:
+  title: Minhas Horas - Backups and Export API
+  version: 1.0.0
+  description: Endpoints para gerenciamento de rotinas de backup, disparo sob demanda, histórico e download.
+paths:
+  /api/v1/backups/schedule:
+    get:
+      summary: Obter configuração da rotina automática de backup
+      responses:
+        '200':
+          description: Configuração atual do agendamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupSchedule'
+    put:
+      summary: Atualizar configuração da rotina automática de backup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBackupScheduleInput'
+      responses:
+        '200':
+          description: Configuração atualizada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupSchedule'
+        '400':
+          description: Parâmetros inválidos (ex: horário ou frequência inválidos)
+
+  /api/v1/backups/export:
+    post:
+      summary: Disparar um backup manual sob demanda
+      responses:
+        '202':
+          description: Backup iniciado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupRun'
+        '409':
+          description: Conflito - já existe um processo de backup em andamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/backups/status:
+    get:
+      summary: Obter status atual do subsistema de backup
+      responses:
+        '200':
+          description: Situação operacional de backup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isRunning:
+                    type: boolean
+                  currentRun:
+                    $ref: '#/components/schemas/BackupRun'
+                    nullable: true
+                  lastRun:
+                    $ref: '#/components/schemas/BackupRun'
+                    nullable: true
+                  backupDirectory:
+                    type: string
+                  isExternalAccessible:
+                    type: boolean
+
+  /api/v1/backups/history:
+    get:
+      summary: Listar histórico de execuções de backup
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Lista de execuções de backup
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  runs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BackupRun'
+
+  /api/v1/backups/{id}/download:
+    get:
+      summary: Baixar arquivo compactado de backup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Stream do arquivo compactado (.sqlite.gz)
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+                example: attachment; filename="minhashoras-backup-20261002-020000.sqlite.gz"
+            Content-Type:
+              schema:
+                type: string
+                example: application/gzip
+            X-Checksum-SHA256:
+              schema:
+                type: string
+          content:
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Backup não encontrado ou já expurgado por retenção
+
+components:
+  schemas:
+    BackupSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+        enabled:
+          type: boolean
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        timeOfDay:
+          type: string
+          example: "02:00"
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+          nullable: true
+        dayOfMonth:
+          type: integer
+          minimum: 1
+          maximum: 31
+          nullable: true
+        retentionCount:
+          type: integer
+          minimum: 1
+          maximum: 100
+        targetDirectory:
+          type: string
+          nullable: true
+        lastRunAt:
+          type: string
+          format: date-time
+          nullable: true
+        nextRunAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    UpdateBackupScheduleInput:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        timeOfDay:
+          type: string
+          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          example: "03:30"
+        dayOfWeek:
+          type: integer
+          minimum: 0
+          maximum: 6
+        dayOfMonth:
+          type: integer
+          minimum: 1
+          maximum: 31
+        retentionCount:
+          type: integer
+          minimum: 1
+          maximum: 100
+        targetDirectory:
+          type: string
+          nullable: true
+
+    BackupRun:
+      type: object
+      properties:
+        id:
+          type: string
+        scheduleId:
+          type: string
+          nullable: true
+        triggerType:
+          type: string
+          enum: [automated, manual]
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed, purged]
+        fileName:
+          type: string
+          nullable: true
+        fileSizeBytes:
+          type: integer
+          nullable: true
+        checksumSha256:
+          type: string
+          nullable: true
+        recordsCount:
+          type: integer
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string

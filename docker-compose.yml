@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: minhashoras:latest
+    container_name: minhashoras-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/data/minhashoras.db
+      - BACKUP_DIR=/backups
+    volumes:
+      - minhashoras-data:/data
+      - minhashoras-backups:/backups
+    deploy:
+      resources:
+        limits:
+          memory: 150M
+
+volumes:
+  minhashoras-data:
+    name: minhashoras-data
+  minhashoras-backups:
+    name: minhashoras-backups

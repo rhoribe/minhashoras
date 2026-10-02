@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "Minhas Horas Impeccable Design Tokens",
+  "description": "Design tokens calibrated for light and dark modes with WCAG AA compliance (>=4.5:1 text contrast) and 44px touch targets.",
+  "tokens": {
+    "light": {
+      "color": {
+        "bg": "#f8fafc",
+        "surface": "#ffffff",
+        "surfaceElevated": "#f1f5f9",
+        "border": "#e2e8f0",
+        "borderHover": "#cbd5e1",
+        "textPrimary": "#0f172a",
+        "textSecondary": "#475569",
+        "textMuted": "#64748b",
+        "brandPrimary": "#16a34a",
+        "brandHover": "#15803d",
+        "brandSurface": "#dcfce7",
+        "brandText": "#14532d",
+        "danger": "#dc2626",
+        "dangerSurface": "#fee2e2",
+        "warning": "#d97706",
+        "warningSurface": "#fef3c7"
+      }
+    },
+    "dark": {
+      "color": {
+        "bg": "#090d16",
+        "surface": "#0f172a",
+        "surfaceElevated": "#1e293b",
+        "border": "#1e293b",
+        "borderHover": "#334155",
+        "textPrimary": "#f8fafc",
+        "textSecondary": "#94a3b8",
+        "textMuted": "#64748b",
+        "brandPrimary": "#22c55e",
+        "brandHover": "#4ade80",
+        "brandSurface": "#052e16",
+        "brandText": "#86efac",
+        "danger": "#ef4444",
+        "dangerSurface": "#450a0a",
+        "warning": "#f59e0b",
+        "warningSurface": "#451a03"
+      }
+    },
+    "layout": {
+      "touchTargetMin": "44px",
+      "radiusSm": "8px",
+      "radiusMd": "12px",
+      "radiusLg": "16px",
+      "radiusFull": "9999px"
+    },
+    "typography": {
+      "fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+      "headingWeight": "700",
+      "bodyWeight": "400",
+      "interactiveWeight": "600"
+    }
+  }
+}

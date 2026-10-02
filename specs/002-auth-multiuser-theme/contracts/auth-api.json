@@ -1,0 +1,183 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Minhas Horas - Authentication & User API",
+    "version": "1.0.0",
+    "description": "Endpoints for multi-user authentication, registration, session management, and user preferences."
+  },
+  "paths": {
+    "/api/auth/register": {
+      "post": {
+        "summary": "Register a new user account",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["username", "email", "password", "display_name"],
+                "properties": {
+                  "username": { "type": "string", "pattern": "^[a-zA-Z0-9._-]{3,32}$" },
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "display_name": { "type": "string", "minLength": 2, "maxLength": 64 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Account created and session started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Validation error or user already exists" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "summary": "Authenticate user credentials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["login", "password"],
+                "properties": {
+                  "login": { "type": "string", "description": "Username or email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "user": { "$ref": "#/components/schemas/UserResponse" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid credentials" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "summary": "Retrieve currently authenticated user and preferences",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Active user profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": { "$ref": "#/components/schemas/UserResponse" },
+                    "preferences": { "$ref": "#/components/schemas/UserPreferencesResponse" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Invalid or expired session token" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "summary": "Revoke active session token",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Logged out successfully" }
+        }
+      }
+    },
+    "/api/user/preferences": {
+      "put": {
+        "summary": "Update user preferences (theme, work limits)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "theme_mode": { "type": "string", "enum": ["light", "dark", "system"] },
+                  "daily_standard_work_minutes": { "type": "integer", "minimum": 60, "maximum": 1440 },
+                  "max_positive_limit_minutes": { "type": "integer", "minimum": 0 },
+                  "max_negative_limit_minutes": { "type": "integer", "maximum": 0 },
+                  "warning_threshold_percentage": { "type": "integer", "minimum": 1, "maximum": 100 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/UserPreferencesResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    },
+    "schemas": {
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "username": { "type": "string" },
+          "email": { "type": "string" },
+          "display_name": { "type": "string" },
+          "created_at": { "type": "string" }
+        }
+      },
+      "UserPreferencesResponse": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "string" },
+          "theme_mode": { "type": "string", "enum": ["light", "dark", "system"] },
+          "daily_standard_work_minutes": { "type": "integer" },
+          "max_positive_limit_minutes": { "type": "integer" },
+          "max_negative_limit_minutes": { "type": "integer" },
+          "warning_threshold_percentage": { "type": "integer" }
+        }
+      }
+    }
+  }
+}

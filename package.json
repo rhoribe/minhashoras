@@ -1,0 +1,52 @@
+{
+  "name": "minhas-horas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile-first PWA for overtime and time bank tracking with offline-first sync",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,CLIENT\" -c \"cyan.bold,magenta.bold\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "tsx watch server/src/index.ts",
+    "dev:client": "vite --config client/vite.config.ts client",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "vite build --config client/vite.config.ts client",
+    "build:server": "tsc -p server/tsconfig.json",
+    "start": "NODE_ENV=production node dist/server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "tsx server/src/db/migrate.ts",
+    "icons:generate": "tsx scripts/generate-pwa-icons.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/static": "^7.0.4",
+    "better-sqlite3": "^11.8.1",
+    "dexie": "^4.0.11",
+    "exceljs": "^4.4.0",
+    "fastify": "^4.28.1",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "lucide-vue-next": "^0.475.0",
+    "pdfkit": "^0.16.0",
+    "uuid": "^11.1.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.9",
+    "@types/pdfkit": "^0.13.9",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^3.0.7"
+  }
+}

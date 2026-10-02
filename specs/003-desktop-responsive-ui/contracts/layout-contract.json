@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Desktop Responsive UI & Layout Contract",
+  "description": "Responsive layout constraints, breakpoints, navigation modes, and touch target standards.",
+  "breakpoints": {
+    "mobile": {
+      "maxWidth": 767,
+      "navigation": "bottom-bar",
+      "container": "max-w-md",
+      "touchTargetMin": "44px"
+    },
+    "tablet": {
+      "minWidth": 768,
+      "maxWidth": 1023,
+      "navigation": "icon-sidebar-or-top",
+      "container": "max-w-3xl",
+      "gridColumns": 2
+    },
+    "desktop": {
+      "minWidth": 1024,
+      "navigation": "expanded-sidebar",
+      "sidebarWidth": "256px",
+      "container": "max-w-7xl",
+      "gridColumns": 12,
+      "dialogMode": "centered-modal",
+      "tablePresentation": "full-tabular"
+    }
+  },
+  "routes": [
+    { "path": "/", "label": "Painel", "icon": "LayoutDashboard" },
+    { "path": "/records", "label": "Registros", "icon": "Clock" },
+    { "path": "/compensations", "label": "Compensações", "icon": "CalendarCheck2" },
+    { "path": "/reports", "label": "Relatórios", "icon": "FileSpreadsheet" },
+    { "path": "/settings", "label": "Ajustes", "icon": "Settings" }
+  ],
+  "accessibility": {
+    "minTouchTarget": "44px",
+    "modalKeyboardDismissal": "Escape",
+    "minimumTextContrast": "4.5:1",
+    "minimumUIContrast": "3.0:1"
+  }
+}
