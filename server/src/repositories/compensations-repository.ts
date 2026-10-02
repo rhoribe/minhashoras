@@ -103,6 +103,11 @@ export class CompensationsRepository {
     const res = db.prepare(sql).run(...params);
     return res.changes > 0;
   }
+
+  deleteAllForUser(userId: string): number {
+    const res = db.prepare('DELETE FROM compensation_schedules WHERE user_id = ?').run(userId);
+    return res.changes;
+  }
 }
 
 export const compensationsRepository = new CompensationsRepository();

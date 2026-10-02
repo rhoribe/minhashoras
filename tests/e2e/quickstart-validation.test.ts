@@ -2,17 +2,42 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { buildServer } from '../../server/src/index.js';
 import { runMigrations } from '../../server/src/db/migrate.js';
 import { db } from '../../server/src/db/connection.js';
+import { UserRepository } from '../../server/src/repositories/user-repository.js';
+import { AuthService } from '../../server/src/services/auth-service.js';
 
 describe('Quickstart End-to-End Validation Suite', () => {
   const app = buildServer();
   const testUser = 'user_e2e_quickstart';
+  let authToken = '';
 
-  beforeAll(() => {
+  beforeAll(async () => {
     runMigrations();
     db.prepare("DELETE FROM overtime_records WHERE user_id = ? OR id LIKE 'e2e-%'").run(testUser);
     db.prepare("DELETE FROM compensation_schedules WHERE user_id = ? OR id LIKE 'e2e-%'").run(testUser);
     db.prepare('DELETE FROM time_bank_balance WHERE user_id = ?').run(testUser);
     db.prepare('DELETE FROM time_bank_settings WHERE user_id = ?').run(testUser);
+
+    const userRepo = new UserRepository();
+    const existing = userRepo.findById(testUser) || userRepo.findByUsername(testUser);
+    if (!existing) {
+      userRepo.createUser({
+        id: testUser,
+        username: testUser,
+        email: `${testUser}@example.com`,
+        password_hash: AuthService.hashPassword('Pass123!'),
+        display_name: 'E2E User',
+        role: 'user',
+        is_active: 1,
+        must_change_password: 0,
+      });
+    }
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { login: testUser, password: 'Pass123!' },
+    });
+    authToken = JSON.parse(loginRes.payload).token;
   });
 
   it('Scenario 1: Regular Overtime Entry & Duration Calculation', async () => {
@@ -127,6 +152,9 @@ describe('Quickstart End-to-End Validation Suite', () => {
     const csvRes = await app.inject({
       method: 'GET',
       url: '/api/v1/reports/export?format=csv&start_date=2026-10-01&end_date=2026-10-31',
+      headers: {
+        authorization: `Bearer ${authToken}`,
+      },
     });
     expect(csvRes.statusCode).toBe(200);
     expect(csvRes.headers['content-type']).toContain('text/csv');
@@ -135,6 +163,9 @@ describe('Quickstart End-to-End Validation Suite', () => {
     const xlsxRes = await app.inject({
       method: 'GET',
       url: '/api/v1/reports/export?format=xlsx&start_date=2026-10-01&end_date=2026-10-31',
+      headers: {
+        authorization: `Bearer ${authToken}`,
+      },
     });
     expect(xlsxRes.statusCode).toBe(200);
     expect(xlsxRes.headers['content-type']).toContain('spreadsheetml.sheet');
@@ -143,6 +174,9 @@ describe('Quickstart End-to-End Validation Suite', () => {
     const pdfRes = await app.inject({
       method: 'GET',
       url: '/api/v1/reports/export?format=pdf&start_date=2026-10-01&end_date=2026-10-31',
+      headers: {
+        authorization: `Bearer ${authToken}`,
+      },
     });
     expect(pdfRes.statusCode).toBe(200);
     expect(pdfRes.headers['content-type']).toContain('application/pdf');

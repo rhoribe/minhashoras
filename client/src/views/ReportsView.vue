@@ -186,6 +186,7 @@ import { FileText, FileSpreadsheet, FileCode2, Download } from 'lucide-vue-next'
 import { exportReport } from '../services/client-report-generator.js';
 import { localDb, type LocalOvertimeRecord } from '../services/db.js';
 import { getCurrentUserId } from '../services/auth.js';
+import { syncManager } from '../services/sync.js';
 
 const getMonthRange = (offsetMonths: number = 0) => {
   const d = new Date();
@@ -226,6 +227,14 @@ const loadPreview = async () => {
 
 onMounted(async () => {
   await loadPreview();
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    try {
+      await syncManager.triggerSync();
+      await loadPreview();
+    } catch {
+      // Ignore background sync errors
+    }
+  }
 });
 
 const previewTotalMinutes = computed(() => {

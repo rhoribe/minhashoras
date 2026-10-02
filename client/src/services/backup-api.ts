@@ -1,3 +1,5 @@
+import { getAuthHeader } from './auth.js';
+
 export type BackupFrequency = 'daily' | 'weekly' | 'monthly';
 
 export type BackupTriggerType = 'automated' | 'manual';
@@ -72,12 +74,25 @@ export interface RestoreBackupResult {
   };
 }
 
+function handleAuthError(res: Response, defaultMessage: string, errorData: any): void {
+  if (res.status === 401) {
+    throw new Error('Sua sessão expirou ou você não está autenticado. Por favor, faça login novamente.');
+  }
+  if (res.status === 403) {
+    throw new Error('Acesso negado. Apenas administradores podem gerenciar backups do sistema.');
+  }
+  throw new Error(errorData?.message || defaultMessage);
+}
 
 export async function getBackupSchedule(): Promise<BackupSchedule> {
-  const res = await fetch('/api/v1/backups/schedule');
+  const res = await fetch('/api/v1/backups/schedule', {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao consultar configuração de backup');
+    handleAuthError(res, 'Falha ao consultar configuração de backup', errorData);
   }
   return res.json();
 }
@@ -85,13 +100,16 @@ export async function getBackupSchedule(): Promise<BackupSchedule> {
 export async function updateBackupSchedule(input: UpdateBackupScheduleInput): Promise<BackupSchedule> {
   const res = await fetch('/api/v1/backups/schedule', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
     body: JSON.stringify(input),
   });
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao atualizar rotina de backup');
+    handleAuthError(res, 'Falha ao atualizar rotina de backup', errorData);
   }
   return res.json();
 }
@@ -99,7 +117,10 @@ export async function updateBackupSchedule(input: UpdateBackupScheduleInput): Pr
 export async function triggerManualBackup(): Promise<BackupRun> {
   const res = await fetch('/api/v1/backups/export', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
     body: JSON.stringify({}),
   });
 
@@ -109,38 +130,50 @@ export async function triggerManualBackup(): Promise<BackupRun> {
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao iniciar backup manual');
+    handleAuthError(res, 'Falha ao iniciar backup manual', errorData);
   }
 
   return res.json();
 }
 
 export async function getBackupStatus(): Promise<BackupStatus> {
-  const res = await fetch('/api/v1/backups/status');
+  const res = await fetch('/api/v1/backups/status', {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao consultar status do backup');
+    handleAuthError(res, 'Falha ao consultar status do backup', errorData);
   }
   return res.json();
 }
 
 export async function getBackupHistory(limit: number = 20, offset: number = 0): Promise<BackupHistoryResponse> {
-  const res = await fetch(`/api/v1/backups/history?limit=${limit}&offset=${offset}`);
+  const res = await fetch(`/api/v1/backups/history?limit=${limit}&offset=${offset}`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao consultar histórico de backups');
+    handleAuthError(res, 'Falha ao consultar histórico de backups', errorData);
   }
   return res.json();
 }
 
 export async function downloadBackup(id: string, defaultFileName?: string): Promise<void> {
-  const res = await fetch(`/api/v1/backups/${id}/download`);
+  const res = await fetch(`/api/v1/backups/${id}/download`, {
+    headers: {
+      ...getAuthHeader(),
+    },
+  });
   if (!res.ok) {
     if (res.status === 404) {
       throw new Error('Arquivo de backup não encontrado ou já expurgado pela política de retenção.');
     }
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao realizar download do backup');
+    handleAuthError(res, 'Falha ao realizar download do backup', errorData);
   }
 
   // Extract filename from Content-Disposition header if present
@@ -170,7 +203,10 @@ export async function restoreBackup(
 ): Promise<RestoreBackupResult> {
   const res = await fetch(`/api/v1/backups/${id}/restore`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
     body: JSON.stringify(options || {}),
   });
 
@@ -189,9 +225,8 @@ export async function restoreBackup(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.message || 'Falha ao restaurar banco de dados a partir do backup');
+    handleAuthError(res, 'Falha ao restaurar banco de dados a partir do backup', errorData);
   }
 
   return res.json();
 }
-

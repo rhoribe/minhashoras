@@ -357,7 +357,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
 
   // Change password (Protected)
   app.post('/auth/change-password', { preHandler: [authenticate] }, async (request, reply) => {
-    const body = request.body as { new_password?: string };
+    const body = request.body as { current_password?: string; new_password?: string };
     if (!body?.new_password) {
       return reply.status(400).send({
         statusCode: 400,
@@ -366,13 +366,23 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
-    const result = AuthService.changePassword(request.userId!, body.new_password, userRepository);
+    const result = AuthService.changePassword(
+      request.userId!,
+      body.new_password,
+      body.current_password,
+      userRepository
+    );
     if (!result.success) {
       return reply.status(400).send({
         statusCode: 400,
         error: result.message,
         message: result.message,
       });
+    }
+
+    // Invalidate other sessions
+    if (request.token) {
+      sessionRepository.deleteOtherUserSessions(request.userId!, request.token);
     }
 
     adminRepository.insertAuditLog({

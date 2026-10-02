@@ -140,6 +140,11 @@ export class RecordsRepository {
     return result.changes > 0;
   }
 
+  deleteAllForUser(userId: string): number {
+    const result = db.prepare('DELETE FROM overtime_records WHERE user_id = ?').run(userId);
+    return result.changes;
+  }
+
   upsert(input: CreateRecordInput): { record: OvertimeRecordEntity; conflict: boolean } {
     const existing = this.findById(input.id);
     if (!existing) {

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildServer } from '../server/src/index.js';
@@ -7,10 +7,24 @@ import { calculateNextRun, BackupScheduler } from '../server/src/services/backup
 import { backupService } from '../server/src/services/backup-service.js';
 import { backupRepository } from '../server/src/repositories/backup-repository.js';
 import { db } from '../server/src/db/connection.js';
+import { UserRepository } from '../server/src/repositories/user-repository.js';
+import { AuthService } from '../server/src/services/auth-service.js';
 
 describe('Backup & Export Mechanism (Feature 005)', () => {
   const app = buildServer();
+  const userRepo = new UserRepository();
   const testBackupDir = path.resolve(process.cwd(), 'data/test-backups');
+  let adminToken = '';
+
+  const inject = (opts: any) => {
+    return app.inject({
+      ...opts,
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        ...(opts.headers || {}),
+      },
+    });
+  };
 
   beforeAll(async () => {
     process.env.BACKUP_DIR = testBackupDir;
@@ -24,6 +38,25 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     backupRepository.cleanupOrphanRuns();
     db.prepare('DELETE FROM backup_runs').run();
 
+    // Ensure admin user exists for backup tests
+    userRepo.deleteUserByUsername('backup_suite_admin');
+    userRepo.createUser({
+      id: 'backup-suite-admin-id',
+      username: 'backup_suite_admin',
+      email: 'backup_suite_admin@example.com',
+      password_hash: AuthService.hashPassword('AdminPassword123!'),
+      display_name: 'Backup Suite Admin',
+      role: 'admin',
+      is_active: 1,
+      must_change_password: 0,
+    });
+
+    const loginRes = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { login: 'backup_suite_admin', password: 'AdminPassword123!' },
+    });
+    adminToken = JSON.parse(loginRes.payload).token;
 
     // Reset default schedule
     backupRepository.updateSchedule('default', {
@@ -37,6 +70,9 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
   });
 
+  beforeEach(() => {
+    backupRepository.cleanupOrphanRuns();
+  });
 
   afterAll(() => {
     if (fs.existsSync(testBackupDir)) {
@@ -89,7 +125,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
 
     it('GET /api/v1/backups/schedule returns default schedule', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'GET',
         url: '/api/v1/backups/schedule',
       });
@@ -104,7 +140,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
     it('PUT /api/v1/backups/schedule updates schedule and validates input', async () => {
       // Invalid time of day
-      const resInvalid = await app.inject({
+      const resInvalid = await inject({
         method: 'PUT',
         url: '/api/v1/backups/schedule',
         payload: { timeOfDay: '25:99' },
@@ -112,7 +148,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
       expect(resInvalid.statusCode).toBe(400);
 
       // Valid update
-      const resValid = await app.inject({
+      const resValid = await inject({
         method: 'PUT',
         url: '/api/v1/backups/schedule',
         payload: {
@@ -155,7 +191,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     let createdBackupId: string;
 
     it('POST /api/v1/backups/export triggers a manual backup', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
       });
@@ -174,7 +210,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
     it('POST /api/v1/backups/export accepts empty payload or empty string with application/json header (Feature 007)', async () => {
       // Empty JSON object
-      const resJson = await app.inject({
+      const resJson = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
         headers: { 'content-type': 'application/json' },
@@ -183,7 +219,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
       expect(resJson.statusCode).toBe(202);
 
       // Empty string payload with application/json header
-      const resEmpty = await app.inject({
+      const resEmpty = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
         headers: { 'content-type': 'application/json' },
@@ -201,7 +237,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
       });
 
       try {
-        const res = await app.inject({
+        const res = await inject({
           method: 'POST',
           url: '/api/v1/backups/export',
         });
@@ -219,7 +255,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
 
     it('GET /api/v1/backups/:id/download downloads compressed backup file', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'GET',
         url: `/api/v1/backups/${createdBackupId}/download`,
       });
@@ -232,7 +268,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
 
     it('GET /api/v1/backups/:id/download returns 404 for unknown backup', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'GET',
         url: '/api/v1/backups/non-existent-id/download',
       });
@@ -244,27 +280,27 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
   describe('User Story 3: Retention Policy and Oldest Backup Purging', () => {
     it('purges oldest backups exceeding retention count', async () => {
       // Configure retentionCount = 2
-      await app.inject({
+      await inject({
         method: 'PUT',
         url: '/api/v1/backups/schedule',
         payload: { retentionCount: 2 },
       });
 
       // Run 3 manual backups to exceed retention of 2
-      const res1 = await app.inject({ method: 'POST', url: '/api/v1/backups/export' });
+      const res1 = await inject({ method: 'POST', url: '/api/v1/backups/export' });
       expect(res1.statusCode).toBe(202);
       const b1 = JSON.parse(res1.payload);
 
-      const res2 = await app.inject({ method: 'POST', url: '/api/v1/backups/export' });
+      const res2 = await inject({ method: 'POST', url: '/api/v1/backups/export' });
       expect(res2.statusCode).toBe(202);
       const b2 = JSON.parse(res2.payload);
 
-      const res3 = await app.inject({ method: 'POST', url: '/api/v1/backups/export' });
+      const res3 = await inject({ method: 'POST', url: '/api/v1/backups/export' });
       expect(res3.statusCode).toBe(202);
       const b3 = JSON.parse(res3.payload);
 
       // Verify that the earlier backup has been purged
-      const historyRes = await app.inject({
+      const historyRes = await inject({
         method: 'GET',
         url: '/api/v1/backups/history',
       });
@@ -277,7 +313,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
       // Verify purged backup download returns 404
       const purgedId = purgedRuns[0].id;
-      const downloadRes = await app.inject({
+      const downloadRes = await inject({
         method: 'GET',
         url: `/api/v1/backups/${purgedId}/download`,
       });
@@ -287,7 +323,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
   describe('User Story 4: Status, Audit History, and Integrity', () => {
     it('GET /api/v1/backups/status returns operational status', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'GET',
         url: '/api/v1/backups/status',
       });
@@ -301,7 +337,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
 
     it('GET /api/v1/backups/history returns paginated audit history', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'GET',
         url: '/api/v1/backups/history?limit=5&offset=0',
       });
@@ -316,7 +352,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
   describe('Feature 007: Safe Database Restore', () => {
     beforeAll(async () => {
-      await app.inject({
+      await inject({
         method: 'PUT',
         url: '/api/v1/backups/schedule',
         payload: { retentionCount: 7 },
@@ -326,7 +362,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     it('restores database state and creates automatic pre-restore safety snapshot', async () => {
 
       // 1. Create a baseline backup
-      const createRes = await app.inject({
+      const createRes = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
         payload: '{}',
@@ -336,7 +372,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
       const targetBackup = JSON.parse(createRes.payload);
 
       // 2. Perform restore from baseline backup
-      const restoreRes = await app.inject({
+      const restoreRes = await inject({
         method: 'POST',
         url: `/api/v1/backups/${targetBackup.id}/restore`,
         payload: '{}',
@@ -357,7 +393,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
     });
 
     it('returns 404 when attempting to restore non-existent backup', async () => {
-      const res = await app.inject({
+      const res = await inject({
         method: 'POST',
         url: '/api/v1/backups/non-existent-uuid/restore',
         payload: '{}',
@@ -371,7 +407,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
     it('returns 409 Conflict when restore is triggered while an operation is running', async () => {
       // Create a valid backup first
-      const exportRes = await app.inject({
+      const exportRes = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
       });
@@ -384,7 +420,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
       });
 
       try {
-        const res = await app.inject({
+        const res = await inject({
           method: 'POST',
           url: `/api/v1/backups/${validBackup.id}/restore`,
         });
@@ -402,7 +438,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
 
     it('returns 422 when archive checksum mismatch occurs', async () => {
       // Create a valid backup
-      const exportRes = await app.inject({
+      const exportRes = await inject({
         method: 'POST',
         url: '/api/v1/backups/export',
       });
@@ -413,7 +449,7 @@ describe('Backup & Export Mechanism (Feature 005)', () => {
         checksumSha256: 'tampered-checksum-1234567890abcdef',
       });
 
-      const res = await app.inject({
+      const res = await inject({
         method: 'POST',
         url: `/api/v1/backups/${validBackup.id}/restore`,
       });

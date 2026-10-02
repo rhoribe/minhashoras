@@ -36,6 +36,8 @@ Ao inicializar o sistema pela primeira vez, uma conta de administrador padrão �
 ### 👥 Multi-Usuário & Gestão de Acessos (RBAC)
 - **Isolamento Completo**: Cada usuário autenticado visualiza e gerencia exclusivamente os seus próprios registros, compensações e preferências.
 - **Fronteira de Privilégios no Autocadastro**: O cadastro público (`Criar Conta`) atribui estritamente a permissão de usuário padrão (`role: 'user'`), blindando o sistema contra qualquer tentativa de escalada de privilégios.
+- **Troca Voluntária de Senha**: Qualquer usuário pode atualizar sua própria senha a qualquer momento na tela de Configurações, com exigência da senha atual para validação e invalidação automática de sessões secundárias em outros aparelhos.
+- **Zerar Registros Pessoais (*Zerar Meus Registros*)**: Permite que o usuário zere exclusivamente seus apontamentos de horas extras e compensações (retornando o saldo a 0) sem deletar sua conta de login, com confirmação expressa (`ZERAR-MEUS-REGISTROS`) e limpeza do cache IndexedDB local.
 - **Exclusão de Conta pelo Próprio Usuário (*Self-Service Delete*)**: Qualquer usuário comum pode, a partir da tela de Configurações, solicitar a exclusão definitiva de sua conta. O processo é atômico: limpa todos os apontamentos, compensações e limites do servidor, limpa o IndexedDB local deste dispositivo e encerra a sessão.
 - **Proteção contra Lockout (*Sole Admin Protection*)**: O sistema impede que o único administrador ativo exclua a própria conta, garantindo que o servidor nunca fique sem gestão.
 
@@ -55,11 +57,15 @@ Ao inicializar o sistema pela primeira vez, uma conta de administrador padrão �
 - **Planilhas Excel (.xlsx)**: Exportação com formatação profissional, cores temáticas e fórmulas automáticas de totalização.
 - **Arquivo CSV**: Exportação universal compatível com o padrão RFC 4180.
 
-### 💾 Backup Externo & Restauração Segura
-- **Snapshots Consistentes Online**: Cópia pontual sem interrupção do banco SQLite, compactada via gzip (`.sqlite.gz`).
-- **Integridade & Checksum SHA-256**: Validação estrutural com `PRAGMA integrity_check` e cálculo de hash para auditoria.
-- **Rotinas Automáticas**: Agendamento de rotinas diárias, semanais ou mensais com política de rotação de retenção (ex: manter apenas os 7 backups mais recentes).
-- **Restauração Segura**: Restauração com geração automática de snapshot de segurança antes da substituição da base ativa.
+### 💾 Backup de Dados: Geral (Admin) & Pessoal (Usuário)
+- **Backup Geral do Sistema (Exclusivo para Admin)**:
+  - Snapshots consistentes online da base SQLite completa compactada via gzip (`.sqlite.gz`).
+  - Agendamento de rotinas diárias, semanais ou mensais com política de retenção automática.
+  - Restauração segura com snapshot pré-restauração.
+  - **Segurança RBAC**: Rotinas e endpoints `/api/v1/backups/*` protegidos por verificação estrita de administrador (retornando `403 Forbidden` para usuários comuns) e interface ocultada no frontend.
+- **Backup Pessoal Individualizado (Todos os Usuários)**:
+  - Cada colaborador pode gerar e baixar uma cópia de segurança em formato JSON estruturado contendo apenas seus próprios registros de horas, compensações e preferências.
+  - Formato portátil e limpo, sem hashes de senhas e sem dados de terceiros.
 
 ---
 

@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { localDb, type LocalOvertimeRecord } from './db.js';
+import { getAuthHeader, getCurrentUserId } from './auth.js';
 
 export function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
@@ -76,22 +77,44 @@ export async function exportReport(format: 'csv' | 'xlsx' | 'pdf', startDate: st
 
   if (navigator.onLine) {
     try {
-      const res = await fetch(`/api/v1/reports/export?format=${format}&start_date=${startDate}&end_date=${endDate}`);
+      const res = await fetch(`/api/v1/reports/export?format=${format}&start_date=${startDate}&end_date=${endDate}`, {
+        headers: {
+          ...getAuthHeader(),
+        },
+      });
+
+      if (res.status === 401) {
+        throw new Error('Sua sessão expirou ou o token é inválido. Por favor, autentique-se novamente.');
+      }
+
       if (res.ok) {
         const blob = await res.blob();
         downloadBlob(blob, filename);
         return;
       }
-    } catch {
-      // Fallback to client generation if offline or error
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Falha ao exportar relatório pelo servidor');
+      }
+    } catch (err: any) {
+      if (err.message && (err.message.includes('sessão expirou') || err.message.includes('autentique-se'))) {
+        throw err;
+      }
+      // Fallback to client generation if network/server is unreachable
     }
   }
 
-  // Offline client-side generation
-  const records = await localDb.overtimeRecords
-    .where('record_date')
-    .between(startDate, endDate, true, true)
+  // Offline client-side generation strictly scoped to the active user
+  const currentUserId = getCurrentUserId();
+  const allUserRecords = await localDb.overtimeRecords
+    .where('user_id')
+    .equals(currentUserId)
     .toArray();
+
+  const records = allUserRecords
+    .filter(r => (!startDate || r.record_date >= startDate) && (!endDate || r.record_date <= endDate))
+    .sort((a, b) => b.record_date.localeCompare(a.record_date));
 
   if (format === 'csv') {
     generateClientCsv(records, filename);

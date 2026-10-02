@@ -99,3 +99,11 @@ export async function clearAllLocalData(): Promise<void> {
     localDb.activeSession.clear(),
   ]);
 }
+
+export async function clearLocalUserRecords(userId: string): Promise<void> {
+  await Promise.all([
+    localDb.overtimeRecords.where('user_id').equals(userId).delete(),
+    localDb.compensations.where('user_id').equals(userId).delete(),
+    localDb.syncQueue.where('user_id').equals(userId).delete(),
+  ]);
+}

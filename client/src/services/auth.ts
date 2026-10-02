@@ -13,6 +13,7 @@ export interface User {
 }
 
 export interface ChangePasswordRequest {
+  current_password?: string;
   new_password: string;
 }
 
@@ -199,7 +200,10 @@ export async function logout(): Promise<void> {
   } catch {}
 }
 
-export async function changePassword(newPassword: string): Promise<{ success: boolean; message?: string }> {
+export async function changePassword(
+  newPassword: string,
+  currentPassword?: string
+): Promise<{ success: boolean; message?: string }> {
   if (!token.value) {
     return { success: false, message: 'Usuário não autenticado.' };
   }
@@ -208,13 +212,20 @@ export async function changePassword(newPassword: string): Promise<{ success: bo
   error.value = null;
 
   try {
+    const payload: { new_password: string; current_password?: string } = {
+      new_password: newPassword,
+    };
+    if (currentPassword) {
+      payload.current_password = currentPassword;
+    }
+
     const res = await fetch('/api/v1/auth/change-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token.value}`,
       },
-      body: JSON.stringify({ new_password: newPassword }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();

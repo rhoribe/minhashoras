@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import fs from 'node:fs';
+import { requireAdmin } from './auth-routes.js';
 import { backupRepository, BackupRepository } from '../repositories/backup-repository.js';
 import { backupService, BackupService } from '../services/backup-service.js';
 import { calculateNextRun } from '../services/backup-scheduler.js';
@@ -11,6 +12,7 @@ interface RouteOptions extends FastifyPluginOptions {
 }
 
 export async function backupRoutes(server: FastifyInstance, options: RouteOptions) {
+  server.addHook('preHandler', requireAdmin);
   const repo = options.repository || backupRepository;
   const service = options.service || backupService;
 

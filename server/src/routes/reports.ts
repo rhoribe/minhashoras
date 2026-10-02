@@ -3,14 +3,21 @@ import { recordsRepository } from '../repositories/records-repository.js';
 import { generateCsvReport } from '../services/reports/csv-generator.js';
 import { generateExcelReport } from '../services/reports/excel-generator.js';
 import { generatePdfReport } from '../services/reports/pdf-generator.js';
-import { optionalAuthenticate } from './auth-routes.js';
+import { authenticate } from './auth-routes.js';
 
 export async function reportsRoutes(app: FastifyInstance): Promise<void> {
-  app.addHook('preHandler', optionalAuthenticate);
+  app.addHook('preHandler', authenticate);
 
   // GET /reports/export
   app.get('/reports/export', async (req, reply) => {
-    const userId = req.userId || (req.headers['x-user-id'] as string) || 'default_user';
+    const userId = req.userId;
+    if (!userId) {
+      return reply.status(401).send({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Token de autenticação não fornecido ou inválido.',
+      });
+    }
     const { format, start_date, end_date } = req.query as {
       format?: string;
       start_date?: string;

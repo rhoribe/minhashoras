@@ -36,22 +36,87 @@
               </button>
             </div>
 
-            <!-- Danger Zone: Excluir Conta -->
-            <div class="pt-4 border-t border-app-border space-y-2.5">
-              <div class="flex items-center justify-between gap-3">
+            <!-- Alert for Personal Operations (Backup / Reset) -->
+            <div
+              v-if="personalBackupMessage"
+              :class="[
+                'p-3.5 rounded-2xl text-xs flex items-center justify-between gap-2.5 shadow-sm border',
+                personalBackupMessage.type === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                  : 'bg-red-50 dark:bg-red-950/80 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
+              ]"
+            >
+              <div class="flex items-center gap-2">
+                <CheckCircle2 v-if="personalBackupMessage.type === 'success'" class="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <AlertCircle v-else class="w-4 h-4 shrink-0 text-red-600 dark:text-red-400" />
+                <span>{{ personalBackupMessage.text }}</span>
+              </div>
+            </div>
+
+            <!-- Actions Row: Alterar Senha & Baixar Meu Backup Pessoal -->
+            <div class="pt-3 border-t border-app-border grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                @click="openChangePasswordModal"
+                class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-app-text-primary text-xs font-semibold border border-app-border flex items-center justify-center gap-2 min-h-touch min-w-touch transition-colors cursor-pointer"
+              >
+                <KeyRound class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                Alterar Senha
+              </button>
+
+              <button
+                type="button"
+                @click="handleDownloadPersonalBackup"
+                :disabled="isDownloadingPersonalBackup"
+                class="px-3 py-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-center gap-2 min-h-touch min-w-touch transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw v-if="isDownloadingPersonalBackup" class="w-4 h-4 animate-spin" />
+                <Download v-else class="w-4 h-4" />
+                <span>{{ isDownloadingPersonalBackup ? 'Exportando...' : 'Backup Pessoal (JSON)' }}</span>
+              </button>
+            </div>
+
+            <!-- Danger Zone: Zerar Registros e Excluir Conta -->
+            <div class="pt-4 border-t border-app-border space-y-3">
+              <h4 class="text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">
+                Zona de Gerenciamento de Dados
+              </h4>
+
+              <!-- Zerar Meus Registros -->
+              <div class="p-3.5 rounded-2xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h4 class="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <h5 class="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                    <RotateCcw class="w-3.5 h-3.5" />
+                    Zerar Meus Registros
+                  </h5>
+                  <p class="text-[11px] text-app-text-muted mt-0.5">
+                    Apaga apenas suas horas e compensações, zerando o saldo. Mantém sua conta intacta.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  @click="openResetRecordsModal"
+                  class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold min-h-touch min-w-touch transition-all cursor-pointer shrink-0 shadow-xs"
+                >
+                  Zerar Registros
+                </button>
+              </div>
+
+              <!-- Excluir Minha Conta -->
+              <div class="p-3.5 rounded-2xl bg-red-50/60 dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h5 class="text-xs font-bold text-red-700 dark:text-red-300 flex items-center gap-1.5">
                     <Trash2 class="w-3.5 h-3.5" />
                     Excluir Minha Conta
-                  </h4>
+                  </h5>
                   <p class="text-[11px] text-app-text-muted mt-0.5">
-                    Apaga permanentemente sua conta, horas extras e dados deste dispositivo.
+                    Apaga permanentemente seu usuário, horas extras e dados deste dispositivo.
                   </p>
                 </div>
                 <button
                   type="button"
                   @click="openDeleteAccountModal"
-                  class="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-xs font-bold hover:bg-red-600 hover:text-white dark:hover:bg-red-600 dark:hover:text-white min-h-touch min-w-touch transition-all cursor-pointer shrink-0"
+                  class="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold min-h-touch min-w-touch transition-all cursor-pointer shrink-0 shadow-xs"
                 >
                   Excluir Dados
                 </button>
@@ -185,8 +250,8 @@
       </div>
     </form>
 
-    <!-- Section: Backup & External Data Export (Feature 005) -->
-    <div class="mt-8 pt-8 border-t border-app-border space-y-6">
+    <!-- Section: Backup & External Data Export (Feature 005 - Admin Only) -->
+    <div v-if="authState.isAdmin.value" class="mt-8 pt-8 border-t border-app-border space-y-6">
       <div>
         <h3 class="text-lg sm:text-xl font-bold text-app-text-primary tracking-tight flex items-center gap-2">
           <HardDrive class="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
@@ -643,12 +708,272 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de Alterar Senha (Feature 011 - US2) -->
+    <div
+      v-if="showChangePasswordModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+    >
+      <div
+        class="bg-app-surface border border-app-border rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="change-password-modal-title"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-2.5 text-emerald-600 dark:text-emerald-400">
+            <div class="p-2 rounded-2xl bg-emerald-100 dark:bg-emerald-950/80">
+              <KeyRound class="w-6 h-6 shrink-0" />
+            </div>
+            <h3 id="change-password-modal-title" class="font-bold text-base text-app-text-primary">
+              Alterar Senha
+            </h3>
+          </div>
+          <button
+            type="button"
+            @click="closeChangePasswordModal"
+            :disabled="isChangingPassword"
+            class="p-2 rounded-xl text-app-text-muted hover:text-app-text-primary hover:bg-app-bg transition min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+            aria-label="Fechar"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <!-- Error Banner inside modal -->
+        <div
+          v-if="changePasswordError"
+          class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-start space-x-2"
+        >
+          <AlertCircle class="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{{ changePasswordError }}</span>
+        </div>
+
+        <!-- Success Banner inside modal -->
+        <div
+          v-if="changePasswordSuccess"
+          class="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs flex items-start space-x-2"
+        >
+          <CheckCircle2 class="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{{ changePasswordSuccess }}</span>
+        </div>
+
+        <form @submit.prevent="handleSubmitChangePassword" class="space-y-4">
+          <!-- Current Password -->
+          <div>
+            <label class="block text-xs font-semibold text-app-text-primary mb-1.5">
+              Senha Atual
+            </label>
+            <div class="relative">
+              <input
+                v-model="changePasswordCurrent"
+                :type="showPasswordCurrent ? 'text' : 'password'"
+                required
+                autocomplete="current-password"
+                placeholder="Informe sua senha atual"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-app-border bg-app-bg text-app-text-primary placeholder-app-text-muted focus:ring-2 focus:ring-emerald-500 focus:outline-none min-h-touch transition-colors pr-10 text-sm"
+              />
+              <button
+                type="button"
+                @click="showPasswordCurrent = !showPasswordCurrent"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-app-text-muted hover:text-app-text-primary min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+                :title="showPasswordCurrent ? 'Ocultar' : 'Exibir'"
+              >
+                <EyeOff v-if="showPasswordCurrent" class="w-4 h-4" />
+                <Eye v-else class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- New Password -->
+          <div>
+            <label class="block text-xs font-semibold text-app-text-primary mb-1.5">
+              Nova Senha
+            </label>
+            <div class="relative">
+              <input
+                v-model="changePasswordNew"
+                :type="showPasswordNew ? 'text' : 'password'"
+                required
+                autocomplete="new-password"
+                placeholder="Mínimo 8 caracteres (letras e números)"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-app-border bg-app-bg text-app-text-primary placeholder-app-text-muted focus:ring-2 focus:ring-emerald-500 focus:outline-none min-h-touch transition-colors pr-10 text-sm"
+              />
+              <button
+                type="button"
+                @click="showPasswordNew = !showPasswordNew"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-app-text-muted hover:text-app-text-primary min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+                :title="showPasswordNew ? 'Ocultar' : 'Exibir'"
+              >
+                <EyeOff v-if="showPasswordNew" class="w-4 h-4" />
+                <Eye v-else class="w-4 h-4" />
+              </button>
+            </div>
+
+            <!-- Password Requirements Badges -->
+            <div class="mt-2 space-y-1 text-[11px]">
+              <div class="flex items-center gap-1.5" :class="changePasswordNew.length >= 8 ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text-muted'">
+                <CheckCircle2 class="w-3.5 h-3.5" />
+                <span>Pelo menos 8 caracteres</span>
+              </div>
+              <div class="flex items-center gap-1.5" :class="/[A-Za-z]/.test(changePasswordNew) && /[0-9]/.test(changePasswordNew) ? 'text-emerald-600 dark:text-emerald-400' : 'text-app-text-muted'">
+                <CheckCircle2 class="w-3.5 h-3.5" />
+                <span>Contém letras e números</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Confirm Password -->
+          <div>
+            <label class="block text-xs font-semibold text-app-text-primary mb-1.5">
+              Confirmar Nova Senha
+            </label>
+            <div class="relative">
+              <input
+                v-model="changePasswordConfirm"
+                :type="showPasswordConfirm ? 'text' : 'password'"
+                required
+                autocomplete="new-password"
+                placeholder="Repita a nova senha"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-app-border bg-app-bg text-app-text-primary placeholder-app-text-muted focus:ring-2 focus:ring-emerald-500 focus:outline-none min-h-touch transition-colors pr-10 text-sm"
+              />
+              <button
+                type="button"
+                @click="showPasswordConfirm = !showPasswordConfirm"
+                class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-app-text-muted hover:text-app-text-primary min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+                :title="showPasswordConfirm ? 'Ocultar' : 'Exibir'"
+              >
+                <EyeOff v-if="showPasswordConfirm" class="w-4 h-4" />
+                <Eye v-else class="w-4 h-4" />
+              </button>
+            </div>
+            <div v-if="changePasswordConfirm && changePasswordNew !== changePasswordConfirm" class="mt-1.5 text-[11px] text-red-500">
+              As senhas não coincidem.
+            </div>
+          </div>
+
+          <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-3">
+            <button
+              type="button"
+              @click="closeChangePasswordModal"
+              :disabled="isChangingPassword"
+              class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-app-border hover:bg-app-bg text-app-text-primary font-semibold text-xs transition min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="!isChangePasswordValid || isChangingPassword"
+              class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-emerald-600/30 transition min-h-touch min-w-touch flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <RefreshCw v-if="isChangingPassword" class="w-4 h-4 animate-spin" />
+              <KeyRound v-else class="w-4 h-4" />
+              <span>{{ isChangingPassword ? 'Salvando...' : 'Atualizar Senha' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Modal de Confirmação de Zerar Registros (Feature 011 - US3) -->
+    <div
+      v-if="showResetRecordsModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
+    >
+      <div
+        class="bg-app-surface border border-amber-200 dark:border-amber-900/80 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reset-records-modal-title"
+      >
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
+            <div class="p-2 rounded-2xl bg-amber-100 dark:bg-amber-950/80">
+              <AlertTriangle class="w-6 h-6 shrink-0" />
+            </div>
+            <h3 id="reset-records-modal-title" class="font-bold text-base text-app-text-primary">
+              Zerar Meus Registros
+            </h3>
+          </div>
+          <button
+            type="button"
+            @click="closeResetRecordsModal"
+            :disabled="isResettingRecords"
+            class="p-2 rounded-xl text-app-text-muted hover:text-app-text-primary hover:bg-app-bg transition min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+            aria-label="Fechar"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+
+        <!-- Error Banner inside modal -->
+        <div
+          v-if="resetRecordsError"
+          class="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-start space-x-2"
+        >
+          <AlertCircle class="w-4 h-4 shrink-0 mt-0.5" />
+          <span>{{ resetRecordsError }}</span>
+        </div>
+
+        <div class="space-y-3 text-xs text-app-text-muted leading-relaxed">
+          <p>
+            Você está prestes a zerar o histórico de horas da conta <strong class="text-app-text-primary">@{{ authState.user.value?.username }}</strong>.
+          </p>
+
+          <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 space-y-2">
+            <p class="font-semibold flex items-center gap-1.5">
+              <AlertCircle class="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>O que será alterado:</span>
+            </p>
+            <ul class="list-disc list-inside space-y-1 text-[11px]">
+              <li>Todos os registros de horas extras serão permanentemente excluídos.</li>
+              <li>Todas as compensações agendadas e concluídas serão removidas.</li>
+              <li>Seu saldo líquido e projetado retornará a 0 horas.</li>
+              <li><strong>Sua conta de usuário (@{{ authState.user.value?.username }}) e login NÃO serão afetados.</strong></li>
+            </ul>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-app-text-primary mb-1.5">
+              Digite <span class="font-mono text-amber-600 dark:text-amber-400 font-bold select-all">ZERAR-MEUS-REGISTROS</span> para confirmar:
+            </label>
+            <input
+              v-model="resetRecordsConfirmation"
+              type="text"
+              placeholder="ZERAR-MEUS-REGISTROS"
+              class="w-full px-3.5 py-2.5 rounded-xl border border-app-border bg-app-bg text-app-text-primary placeholder-app-text-muted focus:ring-2 focus:ring-amber-500 focus:outline-none min-h-touch font-mono text-sm"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-2">
+          <button
+            type="button"
+            @click="closeResetRecordsModal"
+            :disabled="isResettingRecords"
+            class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-app-border hover:bg-app-bg text-app-text-primary font-semibold text-xs transition min-h-touch min-w-touch flex items-center justify-center cursor-pointer"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            @click="handleConfirmResetRecords"
+            :disabled="resetRecordsConfirmation !== 'ZERAR-MEUS-REGISTROS' || isResettingRecords"
+            class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white font-bold text-xs shadow-md shadow-amber-600/30 transition min-h-touch min-w-touch flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <RefreshCw v-if="isResettingRecords" class="w-4 h-4 animate-spin" />
+            <RotateCcw v-else class="w-4 h-4" />
+            <span>{{ isResettingRecords ? 'Zerando registros...' : 'Zerar Registros' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   ShieldAlert,
@@ -666,12 +991,16 @@ import {
   RotateCcw,
   AlertTriangle,
   Trash2,
-  X
+  X,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from 'lucide-vue-next';
 import ThemeToggle from '../components/layout/ThemeToggle.vue';
 import { notificationService } from '../services/notifications.js';
-import { authState, getAuthHeader, logout, deleteSelfAccount } from '../services/auth.js';
+import { authState, getAuthHeader, logout, deleteSelfAccount, changePassword } from '../services/auth.js';
 import { clearAllLocalData } from '../services/db.js';
+import { exportPersonalBackup, resetPersonalRecords } from '../services/user-api.js';
 import {
   getBackupSchedule,
   updateBackupSchedule,
@@ -810,6 +1139,7 @@ async function handleConfirmRestore() {
 
 
 async function handleManualBackup() {
+  if (isBackingUp.value || backupStatus.value?.isRunning) return;
   isBackingUp.value = true;
   backupMessage.value = null;
   try {
@@ -908,6 +1238,144 @@ async function handleConfirmDeleteAccount() {
   }
 }
 
+// Personal Data Backup (Feature 011 - US1)
+const isDownloadingPersonalBackup = ref(false);
+const personalBackupMessage = ref<{ type: 'success' | 'error'; text: string } | null>(null);
+
+async function handleDownloadPersonalBackup() {
+  isDownloadingPersonalBackup.value = true;
+  personalBackupMessage.value = null;
+  try {
+    await exportPersonalBackup();
+    personalBackupMessage.value = {
+      type: 'success',
+      text: 'Backup pessoal baixado com sucesso!',
+    };
+    setTimeout(() => {
+      if (personalBackupMessage.value?.type === 'success') {
+        personalBackupMessage.value = null;
+      }
+    }, 4000);
+  } catch (err: any) {
+    personalBackupMessage.value = {
+      type: 'error',
+      text: err.message || 'Erro ao baixar backup pessoal.',
+    };
+  } finally {
+    isDownloadingPersonalBackup.value = false;
+  }
+}
+
+// Voluntary Self-Service Password Change (Feature 011 - US2)
+const showChangePasswordModal = ref(false);
+const changePasswordCurrent = ref('');
+const changePasswordNew = ref('');
+const changePasswordConfirm = ref('');
+const showPasswordCurrent = ref(false);
+const showPasswordNew = ref(false);
+const showPasswordConfirm = ref(false);
+const isChangingPassword = ref(false);
+const changePasswordError = ref('');
+const changePasswordSuccess = ref('');
+
+const isChangePasswordValid = computed(() => {
+  return (
+    changePasswordCurrent.value.length > 0 &&
+    changePasswordNew.value.length >= 8 &&
+    /[A-Za-z]/.test(changePasswordNew.value) &&
+    /[0-9]/.test(changePasswordNew.value) &&
+    changePasswordNew.value === changePasswordConfirm.value
+  );
+});
+
+function openChangePasswordModal() {
+  changePasswordCurrent.value = '';
+  changePasswordNew.value = '';
+  changePasswordConfirm.value = '';
+  changePasswordError.value = '';
+  changePasswordSuccess.value = '';
+  showPasswordCurrent.value = false;
+  showPasswordNew.value = false;
+  showPasswordConfirm.value = false;
+  showChangePasswordModal.value = true;
+}
+
+function closeChangePasswordModal() {
+  if (isChangingPassword.value) return;
+  showChangePasswordModal.value = false;
+  changePasswordError.value = '';
+  changePasswordSuccess.value = '';
+}
+
+async function handleSubmitChangePassword() {
+  if (!isChangePasswordValid.value) return;
+  isChangingPassword.value = true;
+  changePasswordError.value = '';
+  changePasswordSuccess.value = '';
+
+  try {
+    const res = await changePassword(changePasswordNew.value, changePasswordCurrent.value);
+    if (res.success) {
+      changePasswordSuccess.value = 'Senha atualizada com sucesso!';
+      setTimeout(() => {
+        closeChangePasswordModal();
+      }, 1500);
+    } else {
+      changePasswordError.value = res.message || 'Falha ao atualizar a senha.';
+    }
+  } catch (err: any) {
+    changePasswordError.value = err.message || 'Erro inesperado ao atualizar a senha.';
+  } finally {
+    isChangingPassword.value = false;
+  }
+}
+
+// Personal Records Reset (Feature 011 - US3)
+const showResetRecordsModal = ref(false);
+const resetRecordsConfirmation = ref('');
+const isResettingRecords = ref(false);
+const resetRecordsError = ref('');
+
+function openResetRecordsModal() {
+  resetRecordsConfirmation.value = '';
+  resetRecordsError.value = '';
+  showResetRecordsModal.value = true;
+}
+
+function closeResetRecordsModal() {
+  if (isResettingRecords.value) return;
+  showResetRecordsModal.value = false;
+  resetRecordsConfirmation.value = '';
+  resetRecordsError.value = '';
+}
+
+async function handleConfirmResetRecords() {
+  if (resetRecordsConfirmation.value !== 'ZERAR-MEUS-REGISTROS') return;
+  isResettingRecords.value = true;
+  resetRecordsError.value = '';
+
+  try {
+    const userId = authState.user.value?.id || '';
+    const res = await resetPersonalRecords(userId);
+    if (res.success) {
+      closeResetRecordsModal();
+      personalBackupMessage.value = {
+        type: 'success',
+        text: `Registros zerados com sucesso! (${res.purgedRecordsCount} horas extras e ${res.purgedCompensationsCount} compensações limpas).`,
+      };
+      setTimeout(() => {
+        if (personalBackupMessage.value?.type === 'success') {
+          personalBackupMessage.value = null;
+        }
+      }, 5000);
+    }
+  } catch (err: any) {
+    resetRecordsError.value = err.message || 'Erro ao zerar registros.';
+  } finally {
+    isResettingRecords.value = false;
+  }
+}
+
 watch(notificationsEnabled, async (enabled) => {
   if (enabled) {
     const granted = await notificationService.requestPermission();
@@ -942,9 +1410,11 @@ const loadSettings = async () => {
 
 onMounted(() => {
   loadSettings();
-  loadBackupScheduleData();
-  loadBackupStatusData();
-  loadBackupHistory();
+  if (authState.isAdmin.value) {
+    loadBackupScheduleData();
+    loadBackupStatusData();
+    loadBackupHistory();
+  }
 });
 
 const saveSettings = async () => {

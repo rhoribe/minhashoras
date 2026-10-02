@@ -1,6 +1,7 @@
 export type { UserEntity } from '../repositories/user-repository.js';
 
 export interface ChangePasswordRequest {
+  current_password?: string;
   new_password: string;
 }
 

@@ -112,6 +112,10 @@ export class SessionRepository {
     db.prepare('DELETE FROM user_sessions WHERE user_id = ?').run(userId);
   }
 
+  deleteOtherUserSessions(userId: string, currentToken: string): void {
+    db.prepare('DELETE FROM user_sessions WHERE user_id = ? AND token != ?').run(userId, currentToken);
+  }
+
   cleanupExpiredSessions(): void {
     const now = new Date().toISOString();
     db.prepare('DELETE FROM user_sessions WHERE expires_at <= ?').run(now);

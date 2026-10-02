@@ -70,16 +70,26 @@ export class AuthService {
   static changePassword(
     userId: string,
     newPassword: string,
+    currentPassword?: string,
     userRepo: UserRepository = new UserRepository()
   ): { success: boolean; message?: string; user?: UserEntity } {
-    const passwordCheck = this.validatePassword(newPassword);
-    if (!passwordCheck.valid) {
-      return { success: false, message: passwordCheck.message };
-    }
-
     const user = userRepo.findById(userId);
     if (!user) {
       return { success: false, message: 'Usuário não encontrado.' };
+    }
+
+    if (user.must_change_password === 0) {
+      if (!currentPassword) {
+        return { success: false, message: 'A senha atual é obrigatória.' };
+      }
+      if (!this.verifyPassword(currentPassword, user.password_hash)) {
+        return { success: false, message: 'A senha atual informada está incorreta.' };
+      }
+    }
+
+    const passwordCheck = this.validatePassword(newPassword);
+    if (!passwordCheck.valid) {
+      return { success: false, message: passwordCheck.message };
     }
 
     if (this.verifyPassword(newPassword, user.password_hash)) {

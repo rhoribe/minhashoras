@@ -12,6 +12,7 @@ import { settingsRoutes } from './routes/settings.js';
 import { compensationsRoutes } from './routes/compensations.js';
 import { reportsRoutes } from './routes/reports.js';
 import { authRoutes } from './routes/auth-routes.js';
+import { userRoutes } from './routes/user-routes.js';
 import { backupRoutes } from './routes/backup-routes.js';
 import { adminRoutes } from './routes/admin-routes.js';
 import { backupScheduler } from './services/backup-scheduler.js';
@@ -52,6 +53,8 @@ export function buildServer() {
   // Mount API routes
   app.register(authRoutes, { prefix: '/api/v1' });
   app.register(authRoutes, { prefix: '/api' });
+  app.register(userRoutes, { prefix: '/api/v1' });
+  app.register(userRoutes, { prefix: '/api' });
   app.register(adminRoutes, { prefix: '/api/v1' });
   app.register(adminRoutes, { prefix: '/api' });
   app.register(healthRoutes, { prefix: '/api/v1' });
