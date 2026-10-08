@@ -29,12 +29,27 @@ export interface UserPreferences {
 const STORAGE_KEY_TOKEN = 'minhas_horas_auth_token';
 const STORAGE_KEY_USER = 'minhas_horas_user';
 
-const token = ref<string | null>(localStorage.getItem(STORAGE_KEY_TOKEN));
-const user = ref<User | null>(
-  localStorage.getItem(STORAGE_KEY_USER)
-    ? JSON.parse(localStorage.getItem(STORAGE_KEY_USER)!)
-    : null
-);
+const getStoredItem = (key: string): string | null => {
+  if (typeof localStorage !== 'undefined') {
+    return localStorage.getItem(key);
+  }
+  return null;
+};
+
+const getInitialUser = (): User | null => {
+  const raw = getStoredItem(STORAGE_KEY_USER);
+  if (raw) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
+const token = ref<string | null>(getStoredItem(STORAGE_KEY_TOKEN));
+const user = ref<User | null>(getInitialUser());
 const preferences = ref<UserPreferences | null>(null);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
@@ -77,8 +92,24 @@ export async function login(loginInput: string, passwordInput: string): Promise<
 
     token.value = data.token;
     user.value = data.user;
-    localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.user));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_TOKEN, data.token);
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.user));
+    }
+    if (data.preferences && data.user) {
+      try {
+        const existing = await localDb.preferences.get(data.user.id);
+        await localDb.preferences.put({
+          ...(existing || { theme_mode: 'system' }),
+          user_id: data.user.id,
+          max_positive_limit_minutes: data.preferences.max_positive_limit_minutes,
+          max_negative_limit_minutes: data.preferences.max_negative_limit_minutes,
+          warning_threshold_percentage: data.preferences.warning_threshold_percentage,
+          daily_standard_work_minutes: data.preferences.daily_standard_work_minutes || 480,
+          updated_at: new Date().toISOString(),
+        });
+      } catch {}
+    }
     try {
       await localDb.activeSession.put({
         id: 'current',
@@ -168,7 +199,23 @@ export async function fetchCurrentUser(): Promise<boolean> {
     const data = await res.json();
     user.value = data.user;
     preferences.value = data.preferences;
-    localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.user));
+    if (data.preferences && data.user) {
+      try {
+        const existing = await localDb.preferences.get(data.user.id);
+        await localDb.preferences.put({
+          ...(existing || { theme_mode: 'system' }),
+          user_id: data.user.id,
+          max_positive_limit_minutes: data.preferences.max_positive_limit_minutes,
+          max_negative_limit_minutes: data.preferences.max_negative_limit_minutes,
+          warning_threshold_percentage: data.preferences.warning_threshold_percentage,
+          daily_standard_work_minutes: data.preferences.daily_standard_work_minutes || 480,
+          updated_at: new Date().toISOString(),
+        });
+      } catch {}
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(data.user));
+    }
     return true;
   } catch {
     // In case of network timeout, keep local session valid

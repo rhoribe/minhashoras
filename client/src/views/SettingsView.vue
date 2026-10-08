@@ -998,8 +998,8 @@ import {
 } from 'lucide-vue-next';
 import ThemeToggle from '../components/layout/ThemeToggle.vue';
 import { notificationService } from '../services/notifications.js';
-import { authState, getAuthHeader, logout, deleteSelfAccount, changePassword } from '../services/auth.js';
-import { clearAllLocalData } from '../services/db.js';
+import { authState, getAuthHeader, logout, deleteSelfAccount, changePassword, getCurrentUserId } from '../services/auth.js';
+import { localDb, clearAllLocalData } from '../services/db.js';
 import { exportPersonalBackup, resetPersonalRecords } from '../services/user-api.js';
 import {
   getBackupSchedule,
@@ -1391,6 +1391,25 @@ async function handleLogout() {
 }
 
 const loadSettings = async () => {
+  const userId = getCurrentUserId();
+  // Prime from local cache first for instant rendering and offline support
+  try {
+    const localPref = await localDb.preferences.get(userId);
+    if (localPref) {
+      if (typeof localPref.max_positive_limit_minutes === 'number' && localPref.max_positive_limit_minutes > 0) {
+        positiveHours.value = Math.round(localPref.max_positive_limit_minutes / 60);
+      }
+      if (typeof localPref.max_negative_limit_minutes === 'number' && localPref.max_negative_limit_minutes < 0) {
+        negativeHours.value = Math.round(Math.abs(localPref.max_negative_limit_minutes) / 60);
+      }
+      if (typeof localPref.warning_threshold_percentage === 'number' && localPref.warning_threshold_percentage > 0) {
+        warningPercentage.value = localPref.warning_threshold_percentage;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read cached settings from localDb:', err);
+  }
+
   try {
     const res = await fetch('/api/v1/settings', {
       headers: getAuthHeader(),
@@ -1402,6 +1421,18 @@ const loadSettings = async () => {
       warningPercentage.value = data.warning_threshold_percentage;
       notificationsEnabled.value = data.notifications_enabled === 1 || data.notifications_enabled === true;
       reminderTime.value = data.daily_reminder_time || '18:00';
+
+      // Persist latest server settings to local preferences
+      const existing = await localDb.preferences.get(userId);
+      await localDb.preferences.put({
+        ...(existing || { theme_mode: 'system' }),
+        user_id: userId,
+        max_positive_limit_minutes: data.max_positive_limit_minutes,
+        max_negative_limit_minutes: data.max_negative_limit_minutes,
+        warning_threshold_percentage: data.warning_threshold_percentage,
+        daily_standard_work_minutes: data.daily_standard_work_minutes || 480,
+        updated_at: data.updated_at || new Date().toISOString(),
+      });
     }
   } catch (err) {
     console.warn('Could not load settings from server, using local defaults.');
@@ -1420,11 +1451,31 @@ onMounted(() => {
 const saveSettings = async () => {
   isSaving.value = true;
   saveSuccess.value = false;
+  const userId = getCurrentUserId();
+  const maxPos = positiveHours.value * 60;
+  const maxNeg = -1 * Math.abs(negativeHours.value * 60);
+  const warnPct = warningPercentage.value;
+
+  // Immediately persist to IndexedDB
+  try {
+    const existing = await localDb.preferences.get(userId);
+    await localDb.preferences.put({
+      ...(existing || { theme_mode: 'system' }),
+      user_id: userId,
+      max_positive_limit_minutes: maxPos,
+      max_negative_limit_minutes: maxNeg,
+      warning_threshold_percentage: warnPct,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn('Could not persist settings locally:', err);
+  }
+
   try {
     const payload = {
-      max_positive_limit_minutes: positiveHours.value * 60,
-      max_negative_limit_minutes: -1 * Math.abs(negativeHours.value * 60),
-      warning_threshold_percentage: warningPercentage.value,
+      max_positive_limit_minutes: maxPos,
+      max_negative_limit_minutes: maxNeg,
+      warning_threshold_percentage: warnPct,
       notifications_enabled: notificationsEnabled.value,
       daily_reminder_time: reminderTime.value,
     };

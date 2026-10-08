@@ -335,6 +335,22 @@ export class SyncManager {
           }
         }
       }
+
+      // Pull user settings and update localDb.preferences
+      const settingsRes = await fetch('/api/v1/settings', { headers });
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        const existingPref = await localDb.preferences.get(userId);
+        await localDb.preferences.put({
+          ...(existingPref || { theme_mode: 'system' }),
+          user_id: userId,
+          max_positive_limit_minutes: settingsData.max_positive_limit_minutes,
+          max_negative_limit_minutes: settingsData.max_negative_limit_minutes,
+          warning_threshold_percentage: settingsData.warning_threshold_percentage,
+          daily_standard_work_minutes: settingsData.daily_standard_work_minutes || 480,
+          updated_at: settingsData.updated_at || new Date().toISOString(),
+        });
+      }
     } catch (err) {
       console.warn('Error pulling updates from server:', err);
     }

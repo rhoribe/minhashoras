@@ -31,10 +31,31 @@ export async function calculateLocalBalance(): Promise<LocalBalanceSummary> {
   const netBalance = totalPositive - totalNegative;
   const projectedBalance = netBalance - pendingScheduled;
 
-  // Defaults or stored settings
-  const maxPositiveLimit = 2400; // 40h
-  const maxNegativeLimit = -600; // -10h
-  const warningPercentage = 80;
+  // Defaults or stored settings from IndexedDB
+  let maxPositiveLimit = 2400; // 40h default
+  let maxNegativeLimit = -600; // -10h default
+  let warningPercentage = 80;
+
+  try {
+    const userPref = await localDb.preferences.get(userId);
+    if (userPref) {
+      if (typeof userPref.max_positive_limit_minutes === 'number' && userPref.max_positive_limit_minutes > 0) {
+        maxPositiveLimit = userPref.max_positive_limit_minutes;
+      }
+      if (typeof userPref.max_negative_limit_minutes === 'number' && userPref.max_negative_limit_minutes < 0) {
+        maxNegativeLimit = userPref.max_negative_limit_minutes;
+      }
+      if (
+        typeof userPref.warning_threshold_percentage === 'number' &&
+        userPref.warning_threshold_percentage > 0 &&
+        userPref.warning_threshold_percentage <= 100
+      ) {
+        warningPercentage = userPref.warning_threshold_percentage;
+      }
+    }
+  } catch (err) {
+    console.warn('Could not read user preferences from localDb:', err);
+  }
 
   const warningThreshold = (maxPositiveLimit * warningPercentage) / 100;
   const isWarning = netBalance >= warningThreshold && netBalance < maxPositiveLimit;

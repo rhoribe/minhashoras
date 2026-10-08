@@ -32,14 +32,14 @@
       <!-- Capacity Progress Bar -->
       <div>
         <div class="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-          <span>Uso do teto (+{{ Math.round(maxMinutes / 60) }}h)</span>
+          <span>Uso do teto ({{ ceilingFormatted }})</span>
           <span :class="progressColorText">{{ usagePercentage }}%</span>
         </div>
         <div class="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
           <div
             class="h-full rounded-full transition-all duration-500"
             :class="progressBarColor"
-            :style="{ width: `${usagePercentage}%` }"
+            :style="{ width: `${Math.min(100, usagePercentage)}%` }"
           ></div>
         </div>
       </div>
@@ -96,10 +96,20 @@ const negativeFormatted = computed(() => {
   return `${h}h ${m.toString().padStart(2, '0')}m`;
 });
 
+const ceilingFormatted = computed(() => {
+  const mins = props.maxMinutes && props.maxMinutes > 0 ? props.maxMinutes : 2400;
+  if (mins % 60 === 0) {
+    return `+${mins / 60}h`;
+  }
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `+${h}h ${m.toString().padStart(2, '0')}m`;
+});
+
 const usagePercentage = computed(() => {
-  if (props.maxMinutes <= 0) return 0;
+  if (!props.maxMinutes || props.maxMinutes <= 0) return 0;
   const pct = Math.round((Math.max(0, props.netMinutes) / props.maxMinutes) * 100);
-  return Math.min(100, Math.max(0, pct));
+  return Math.max(0, pct);
 });
 
 const progressBarColor = computed(() => {
